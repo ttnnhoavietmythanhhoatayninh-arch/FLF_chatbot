@@ -1,0 +1,11 @@
+*
+!Dockerfile
+!requirements.txt
+!main.py
+!excelqa/
+!excelqa/**
+**/__pycache__
+**/*.pyc
+
+!dependency_wheels/
+!dependency_wheels/*.whl
