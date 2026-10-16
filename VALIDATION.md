@@ -1,3 +1,16 @@
+# Kiểm chứng bản 1.1.1 — cập nhật chạy thử không phí API
+
+- 59/59 unit/integration tests đạt trên Python 3.12 Linux.
+- Public 1 offline: 14/20 đúng; 6 rỗng; 0 đáp án sai không rỗng.
+- Public 2 offline: 9/30 đúng; 21 rỗng; 0 đáp án sai không rỗng. Tăng 2 câu so với 1.1.
+- Không có lời gọi OpenRouter trong hai lượt benchmark. Test bổ sung xác nhận offline không tạo API client ngay cả khi nhận key.
+- Test bộ lọc năm dùng năm, ngưỡng, số liệu và thứ tự cột khác dữ liệu công khai; kiểm tra trường hợp nhiều kết quả phải từ chối.
+- Windows launcher mặc định offline, không chuyển key, chặn mạng container, phát hiện số CPU; ENTRYPOINT BTC giữ hybrid như trước.
+- Chưa chạy PowerShell hoặc Docker của bản launcher mới trong môi trường kiểm chứng này. Người dùng đã chạy được Docker bản trước trên máy thứ nhất. Cần chạy bản mới trên Windows để xác nhận tích hợp.
+- Không khẳng định hoàn thiện toàn bộ yêu cầu/độ chính xác hoặc thành công trên bộ ẩn. Lượt Qwen thật chưa được kiểm chứng trong bản cập nhật này.
+
+## Bằng chứng lịch sử của bản 1.1 (trước cập nhật)
+
 # Kiểm chứng phiên bản 1.1 — 16/10/2026
 
 ## Môi trường và kết quả

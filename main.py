@@ -98,7 +98,7 @@ def main(argv=None):
         if sys.platform.startswith('linux'):
             import resource
             peak=resource.getrusage(resource.RUSAGE_SELF).ru_maxrss/1024
-        summary={'version':'1.1.0','questions':len(queries),'solved':len(queries)-failed,'failed':failed,'unanswered':sum(not r['answer'] for r in rows),'hard_errors':hard_errors,
+        summary={'version':'1.1.1','questions':len(queries),'solved':len(queries)-failed,'failed':failed,'unanswered':sum(not r['answer'] for r in rows),'hard_errors':hard_errors,
                  'seconds':round(time.monotonic()-started,4),'peak_rss_mb':peak,
                  'llm_calls':client.calls if client else 0,
                  'prompt_tokens':client.prompt_tokens if client else 0,

@@ -48,6 +48,16 @@ class EntrypointTests(unittest.TestCase):
             self.assertEqual(code,0)
             with output.open(newline='',encoding='utf-8') as f:self.assertEqual(list(csv.DictReader(f)),[{'id':'007','answer':''}])
 
+    def test_offline_never_constructs_client_even_with_key(self):
+        with tempfile.TemporaryDirectory() as d:
+            root=Path(d);inp,q=self.fixture(root);output=root/'submission.csv';report=root/'report.json'
+            with patch('main.OpenRouterClient',side_effect=AssertionError('Network forbidden')),contextlib.redirect_stderr(io.StringIO()):
+                code=main.main(['--xlsx-dir',str(inp),'--queries',str(q),'--output',str(output),'--solver','offline','--openrouter-key','must-not-be-used','--report',str(report)])
+            self.assertEqual(code,0)
+            self.assertEqual(json.loads(report.read_text())['llm_calls'],0)
+            self.assertIn('no API request made',json.loads(report.read_text())['records'][0]['error'])
+            self.assertTrue(output.exists())
+
     def test_failed_workbook_does_not_poison_previous_workbook_cache(self):
         with tempfile.TemporaryDirectory() as d:
             root=Path(d);inp=root/'input';inp.mkdir()

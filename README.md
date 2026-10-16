@@ -1,8 +1,20 @@
-# ExcelQA 2026 — phiên bản 1.1
+# ExcelQA 2026 — phiên bản 1.1.1
 
 Giải pháp hỏi đáp trên bảng tính Excel cho Vòng Khu vực Bảng C. Đọc `xlsx_files/` và `queries.json`, tính đáp án từ ô nguồn, xuất CSV UTF-8 `id,answer`. Docker Linux amd64, CPU; nhận sáu tham số trong hướng dẫn BTC.
 
-**Kết quả đã đo, không gọi API:** đợt 1 đúng 14/20; đợt 2 đúng 7/30, còn 23 câu cần LLM. Không có đáp án sai trong các câu offline đã trả lời. Đây không phải kết quả chạy Qwen thật hoặc điểm dự kiến trên bộ ẩn. Chưa kiểm chứng Docker và OpenRouter thật vì môi trường hiện tại không có Docker/API key. Xem `VALIDATION.md` và `UPGRADE_PLAN.md`.
+**Kết quả đã đo, không gọi API:** đợt 1 đúng 14/20; đợt 2 đúng 9/30, còn 21 câu offline chưa giải được. Không có đáp án sai trong các câu offline đã trả lời. Đây không phải kết quả chạy Qwen thật hoặc điểm dự kiến trên bộ ẩn. Chưa kiểm chứng Docker và OpenRouter thật vì môi trường hiện tại không có Docker/API key. Xem `VALIDATION.md` và `UPGRADE_PLAN.md`.
+
+## Chạy tiếp trên máy thứ nhất, không nạp tiền API
+
+Không cài lại Docker, Python hoặc dự án. Windows launcher mặc định `offline`: không hỏi key, không truyền key vào container và chặn mạng container bằng `--network=none`. Docker build có thể tải base image; đây không phải lời gọi LLM. Để giữ cache và dùng mã mới, build một lần sau mỗi lần sửa mã. Những lần chạy lại không đổi mã có thể thêm `-SkipBuild`.
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\RUN_WINDOWS.ps1 -DataDir "D:\Download\IMG\0.BC\Publicdata2" -OutputDir "$env:USERPROFILE\ExcelQA_KetQua_Offline" -Solver offline -Cpus 4
+```
+
+`llm_calls` phải bằng 0. CSV ghi đủ ID; câu chưa hỗ trợ để rỗng theo FAQ. Bản này đúng 9/30 public 2 khi không gọi API, không phải giải pháp đã hoàn thiện độ chính xác. `Completed` chỉ xác nhận chương trình ghi kết quả. Không thay mô hình runtime bằng Gemini hoặc mô hình miễn phí khác. Giao diện sáu cờ của BTC và mặc định hybrid của ENTRYPOINT vẫn được giữ để nhận key/model do BTC cung cấp khi chấm. Windows launcher mặc định offline chỉ phục vụ việc thử miễn phí trên máy cá nhân.
+
+Bổ sung 1.1.1: lọc năm với hai điều kiện trong bảng lao động, tự đọc tiêu đề nhiều tầng và ngưỡng trong câu hỏi, từ chối nếu có nhiều năm phù hợp. Không tra đáp án theo ID/tên tệp. Windows launcher tự giới hạn CPU theo máy, tối đa 6; có thể chỉ định `-Cpus 4`.
 
 ## 1. Chạy thử bộ dữ liệu đợt 2 trên Windows
 

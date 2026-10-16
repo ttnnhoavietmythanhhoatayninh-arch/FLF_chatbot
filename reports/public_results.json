@@ -1,8 +1,8 @@
 {
-  "version": "1.1.0",
+  "version": "1.1.1",
   "date": "2026-10-16",
   "mode": "offline",
-  "tests_passed": 55,
+  "tests_passed": 59,
   "live_openrouter_tested": false,
   "docker_tested": false,
   "public2_before": {
@@ -17,18 +17,18 @@
       "answered": 14,
       "wrong_nonempty": 0,
       "unanswered": 6,
-      "seconds": 0.3482,
-      "peak_rss_mib": 23.609375,
+      "seconds": 0.4359,
+      "peak_rss_mib": 23.62109375,
       "llm_calls": 0
     },
     "public2": {
       "questions": 30,
-      "exact_match": 7,
-      "answered": 7,
+      "exact_match": 9,
+      "answered": 9,
       "wrong_nonempty": 0,
-      "unanswered": 23,
-      "seconds": 0.8042,
-      "peak_rss_mib": 29.8515625,
+      "unanswered": 21,
+      "seconds": 0.9334,
+      "peak_rss_mib": 29.859375,
       "llm_calls": 0
     }
   },
@@ -40,6 +40,8 @@
       "renamed sheets",
       "added empty sheet",
       "shifted rows and merged ranges by 5"
-    ]
-  }
+    ],
+    "version": "1.1.0 historical"
+  },
+  "windows_launcher_tested": false
 }

@@ -15,7 +15,7 @@ def num(value):
 def structured_plan(book,query):
     plans=[]
     for s in book.sheets:
-        for planner in (naics_count,annual_series,employment_series,vietnamese_comparison):
+        for planner in (naics_count,annual_series,employment_series,annual_thresholds,vietnamese_comparison):
             plan=planner(s,query)
             if plan is not None:plans.append(plan)
     return plans[0] if len(plans)==1 else None
@@ -123,3 +123,42 @@ def employment_series(s,q):
     if len(ag)!=1 or any(num(s.value(r,ag[0])) is None for r in rows):return None
     items=[{'label':cell(s,r,1),'value':cell(s,r,ag[0]),'result':op('list',cell(s,r,1),cell(s,r,total))} for r in rows]
     return {'expression':{'op':'pick','items':items,'descending':True},'format':{'type':'list','item':{'type':'integer'}}}
+
+
+def annual_thresholds(s,q):
+    """Unique annual row satisfying two explicit labor-table conditions.
+
+    Thresholds come from the question, columns from hierarchical headers, and
+    the returned year from its source cell. Ambiguous or missing data defer.
+    """
+    value=r'(\d[\d,]*(?:\.\d+)?)'
+    a=re.fullmatch(r'Identify the year when the unemployment rate exceeded '+value+r'% and the total civilian labor force was below '+value+r' \(in thousands\)\. Answer with only the year\.',q,re.I)
+    b=re.fullmatch(r'In which year did the number of unemployed individuals \(in thousands\) drop below '+value+r' while the employed percentage of the population was above '+value+r'%\? Answer with only the year\.',q,re.I)
+    if not (a or b):return None
+    years=[(r,c) for (r,c),v in s.cells.items() if norm(v)=='year']
+    ycols={c for _,c in years}
+    if len(ycols)!=1:return None
+    yc=next(iter(ycols));header_end=max(r for r,_ in years)
+    rows=[r for r in range(header_end+1,s.rows+1) if num(s.value(r,yc)) is not None and float(num(s.value(r,yc))).is_integer() and 1800<=num(s.value(r,yc))<=2200]
+    if not rows or len({num(s.value(r,yc)) for r in rows})!=len(rows):return None
+    headers={}
+    for c in range(1,s.cols+1):
+        hs=[]
+        for r in range(1,rows[0]):
+            v=norm(s.expanded(r,c))
+            if v and len(v)<90 and (not hs or hs[-1]!=v):hs.append(v)
+        headers[c]=hs
+    tails=[['unemployed','percent of labor force'],['civilian labor force','total']] if a else [['unemployed','number'],['employed','percent of population']]
+    columns=[]
+    for tail in tails:
+        hits=[c for c,hs in headers.items() if hs[-len(tail):]==tail]
+        if len(hits)!=1:return None
+        columns.append(hits[0])
+    limits=[num(v) for v in (a or b).groups()]
+    hits=[]
+    for r in rows:
+        x,y=[num(s.value(r,c)) for c in columns]
+        if x is None or y is None:return None
+        if (x>limits[0] and y<limits[1]) if a else (x<limits[0] and y>limits[1]):hits.append(r)
+    if len(hits)!=1:return None
+    return {'expression':cell(s,hits[0],yc),'format':{'type':'integer'}}

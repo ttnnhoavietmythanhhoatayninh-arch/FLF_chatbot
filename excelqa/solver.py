@@ -32,7 +32,10 @@ def solve(book,query,client,mode,deadline,limit='0.09',max_context=200000):
             trace.update(method='local',plan=local,evidence=ev)
             return ans,trace
         except (PlanError,ArithmeticError):pass
-    if mode=='offline' or client is None:raise SolveError('No supported local plan; OpenRouter API key is required')
+    if mode=='offline':
+        trace['method']='local'
+        raise SolveError('Unsupported offline question; answer left empty; no API request made',trace)
+    if client is None:raise SolveError('No supported local plan; OpenRouter API key is required',trace)
     context=book.context(query,max_bytes=max_context)
     messages=[{'role':'system','content':SYSTEM},
               {'role':'user','content':json.dumps({'question':query,'workbook':context},ensure_ascii=False)}]

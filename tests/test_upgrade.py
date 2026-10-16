@@ -63,4 +63,29 @@ class UpgradeTests(unittest.TestCase):
         q='Giữa các nhóm trình độ học vấn (không tính dòng tổng), chênh lệch thu nhập tiền lương và tiền công trung vị giữa nam và nữ lớn nhất là bao nhiêu đô la? Chỉ trả lời bằng số nguyên, không có dấu phẩy.'
         p=local_plan(b,q);self.assertIsNotNone(p);self.assertEqual(execute(b,p,q)[0],'60')
 
+class AnnualFilterTests(unittest.TestCase):
+    def book(self, values):
+        tmp=tempfile.TemporaryDirectory();self.addCleanup(tmp.cleanup)
+        w=Workbook();s=w.active;s.title='Random sheet'
+        s.append(['Year','Civilian labor force',None,None,None])
+        s.append([None,'Total','Unemployed','Employed','Unemployed'])
+        s.append([None,None,'Percent of labor force','Percent of population','Number'])
+        for row in values:s.append(row)
+        p=Path(tmp.name)/'renamed.xlsx';w.save(p);return Book(p)
+    def test_year_filter_recalculates_changed_thresholds_and_reordered_columns(self):
+        b=self.book([[1991,800,8,59,7],[1992,600,9,60,4],[1993,500,2,51,3]])
+        q='Identify the year when the unemployment rate exceeded 7% and the total civilian labor force was below 700 (in thousands). Answer with only the year.'
+        p=local_plan(b,q);self.assertIsNotNone(p)
+        self.assertEqual(execute(b,p,q)[0],'1992')
+    def test_unemployed_number_is_not_rate(self):
+        b=self.book([[1991,800,8,59,7],[1992,600,9,60,4],[1993,500,2,51,3]])
+        q='In which year did the number of unemployed individuals (in thousands) drop below 5 while the employed percentage of the population was above 55%? Answer with only the year.'
+        p=local_plan(b,q);self.assertIsNotNone(p)
+        self.assertEqual(execute(b,p,q)[0],'1992')
+    def test_ambiguous_year_filter_defers_instead_of_guessing(self):
+        b=self.book([[1991,600,8,59,7],[1992,500,9,60,4]])
+        q='Identify the year when the unemployment rate exceeded 7% and the total civilian labor force was below 700 (in thousands). Answer with only the year.'
+        from excelqa.structured import annual_thresholds
+        self.assertIsNone(annual_thresholds(b.sheets[0],q))
+
 if __name__=='__main__':unittest.main()
