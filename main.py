@@ -38,15 +38,15 @@ def main(argv=None):
     started=time.monotonic();args=parser().parse_args(argv)
     if not 1<=args.time_limit<=2350 or not 1<=args.question_timeout<=300 or not 1000<=args.max_context_bytes<=1000000:
         log('configuration_error',message='Invalid time or context bounds');return 2
-    # Single process, CPU-only. Limit virtual address space on Linux, below 1 GB.
+    # Single process, CPU-only. Limit virtual address space on Linux, below the FAQ 4 GB RAM allowance.
     if sys.platform.startswith('linux'):
         import resource
         old=resource.getrlimit(resource.RLIMIT_AS)
-        cap=900*1024*1024;resource.setrlimit(resource.RLIMIT_AS,(min(cap,old[0]) if old[0]>0 else cap,old[1]))
+        cap=3500*1024*1024;resource.setrlimit(resource.RLIMIT_AS,(min(cap,old[0]) if old[0]>0 else cap,old[1]))
     def alarm(*_):raise DeadlineError('Whole-run time limit reached')
     if hasattr(signal,'setitimer'):
         signal.signal(signal.SIGALRM,alarm);signal.setitimer(signal.ITIMER_REAL,args.time_limit)
-    queries=[];rows=[];records=[];failed=0;cache=None;cache_path=None
+    queries=[];rows=[];records=[];failed=0;hard_errors=0;cache=None;cache_path=None
     client=None
     try:
         from excelqa.budget import Budget
@@ -85,6 +85,7 @@ def main(argv=None):
                 from excelqa.workbook import WorkbookError
                 from excelqa.budget import BudgetError
                 safe=str(e) if isinstance(e,(SolveError,WorkbookError,BudgetError)) else type(e).__name__
+                if not isinstance(e,SolveError):hard_errors+=1
                 trace=dict(e.trace) if isinstance(e,SolveError) else {}
                 trace.update(status='error',error=safe)
                 log('question_error',id=q['id'],message=safe)
@@ -97,17 +98,19 @@ def main(argv=None):
         if sys.platform.startswith('linux'):
             import resource
             peak=resource.getrusage(resource.RUSAGE_SELF).ru_maxrss/1024
-        summary={'version':'1.0.0','questions':len(queries),'solved':len(queries)-failed,'failed':failed,
+        summary={'version':'1.1.0','questions':len(queries),'solved':len(queries)-failed,'failed':failed,'unanswered':sum(not r['answer'] for r in rows),'hard_errors':hard_errors,
                  'seconds':round(time.monotonic()-started,4),'peak_rss_mb':peak,
                  'llm_calls':client.calls if client else 0,
                  'prompt_tokens':client.prompt_tokens if client else 0,
                  'completion_tokens':client.completion_tokens if client else 0,
+                 'reasoning_tokens':client.reasoning_tokens if client and client.reasoning_usage_complete else (None if client else 0),
+                 'btc_input_plus_reasoning_tokens':(client.prompt_tokens+client.reasoning_tokens if client.reasoning_usage_complete else None) if client else 0,
                  'records':records}
         if report_path:
             report_path.parent.mkdir(parents=True,exist_ok=True)
             report_path.write_text(json.dumps(summary,ensure_ascii=False,indent=2),encoding='utf-8')
         log('finish',questions=len(queries),solved=len(queries)-failed,failed=failed,seconds=summary['seconds'],peak_rss_mb=peak)
-        return 0 if failed==0 else 2
+        return 0 if hard_errors==0 else 2
     except DeadlineError:
         # Preserve a diagnostic CSV with all IDs; mark the run as unsuccessful.
         if queries:

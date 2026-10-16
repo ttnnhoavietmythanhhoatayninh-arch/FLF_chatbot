@@ -27,6 +27,7 @@ class OpenRouterClient:
         self.key=key;self.model=model;self.base=base_url.rstrip('/');self.input_price=money(input_price) if input_price is not None else None
         self.output_price=money(output_price) if output_price is not None else None
         if (self.input_price is None)!=(self.output_price is None):raise ValueError('Both token price caps are required')
+        self.reasoning_tokens=0;self.reasoning_usage_complete=True
         self.calls=0;self.prompt_tokens=0;self.completion_tokens=0;self.last_usage={}
         self.opener=urllib.request.build_opener(NoRedirect())
     def _request(self,path,data=None,timeout=20,auth=True):
@@ -76,6 +77,11 @@ class OpenRouterClient:
                 actual=self.input_price*usage['prompt_tokens']+self.output_price*usage['completion_tokens']
             self.prompt_tokens+=max(0,int(usage.get('prompt_tokens',0)))
             self.completion_tokens+=max(0,int(usage.get('completion_tokens',0)))
+            details=usage.get('completion_tokens_details') or {}
+            reasoning=details.get('reasoning_tokens') if isinstance(details,dict) else None
+            if type(reasoning)==int and reasoning>=0:self.reasoning_tokens+=reasoning
+            else:self.reasoning_usage_complete=False
+            if type(usage.get('prompt_tokens'))!=int:self.reasoning_usage_complete=False
             if data.get('model') not in (None,self.model):raise APIError('Unexpected returned model',False)
             if 'error' in data:raise APIError('API returned an error object')
             choice=data.get('choices',[{}])[0]
@@ -86,4 +92,7 @@ class OpenRouterClient:
         except (KeyError,IndexError,TypeError,ValueError) as e:
             if isinstance(e,BudgetError):raise
             raise APIError('Malformed API response') from None
-        finally:budget.settle(token,actual)
+        finally:
+            # A failed/timeout request may have consumed tokens without reporting usage.
+            if actual is None:self.reasoning_usage_complete=False
+            budget.settle(token,actual)

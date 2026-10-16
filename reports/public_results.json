@@ -1,0 +1,45 @@
+{
+  "version": "1.1.0",
+  "date": "2026-10-16",
+  "mode": "offline",
+  "tests_passed": 55,
+  "live_openrouter_tested": false,
+  "docker_tested": false,
+  "public2_before": {
+    "questions": 30,
+    "exact_match": 0,
+    "unanswered": 30
+  },
+  "after": {
+    "public1": {
+      "questions": 20,
+      "exact_match": 14,
+      "answered": 14,
+      "wrong_nonempty": 0,
+      "unanswered": 6,
+      "seconds": 0.3482,
+      "peak_rss_mib": 23.609375,
+      "llm_calls": 0
+    },
+    "public2": {
+      "questions": 30,
+      "exact_match": 7,
+      "answered": 7,
+      "wrong_nonempty": 0,
+      "unanswered": 23,
+      "seconds": 0.8042,
+      "peak_rss_mib": 29.8515625,
+      "llm_calls": 0
+    }
+  },
+  "public2_mutations": {
+    "tested": 7,
+    "correct": 7,
+    "changes": [
+      "renamed workbook",
+      "renamed sheets",
+      "added empty sheet",
+      "shifted rows and merged ranges by 5"
+    ]
+  }
+}

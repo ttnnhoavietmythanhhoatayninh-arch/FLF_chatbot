@@ -2,6 +2,11 @@ import csv
 import json
 import os
 import tempfile
+import re
+
+def id_key(value):
+    text=str(value)
+    return (0,int(text)) if re.fullmatch(r"[0-9]+",text) else (1,text)
 from pathlib import Path
 
 class InputError(ValueError): pass
@@ -15,9 +20,9 @@ def read_queries(path):
     for x in items:
         if not isinstance(x,dict) or not all(k in x for k in ('id','file_name','query')):
             raise InputError('Every query needs id, file_name, query')
-        if type(x['id']) not in (str,int) or str(x['id']) in seen or not str(x['id']):
+        if type(x['id']) not in (str,int) or id_key(x['id']) in seen or not str(x['id']):
             raise InputError('IDs must be distinct nonempty strings or integers, also when CSV encoded')
-        seen.add(str(x['id']))
+        seen.add(id_key(x['id']))
         if not isinstance(x['file_name'],str) or not x['file_name'].lower().endswith('.xlsx'):
             raise InputError('file_name must identify an .xlsx workbook')
         if not isinstance(x['query'],str) or not x['query'].strip() or len(x['query'])>20000:
@@ -37,8 +42,10 @@ def check_output(path,xlsx_dir,queries):
 
 def write_results(path,rows):
     path=Path(path);path.parent.mkdir(parents=True,exist_ok=True)
+    rows=list(rows)
+    if all(id_key(r['id'])[0]==0 for r in rows):rows.sort(key=lambda r:id_key(r['id']))
     ids=[str(r['id']) for r in rows]
-    if len(ids)!=len(set(ids)):raise InputError('Duplicate output IDs')
+    if len(ids)!=len({id_key(i) for i in ids}):raise InputError('Duplicate output IDs')
     fd,tmp=tempfile.mkstemp(prefix='.excelqa-',suffix='.csv',dir=path.parent)
     try:
         with os.fdopen(fd,'w',encoding='utf-8',newline='') as f:

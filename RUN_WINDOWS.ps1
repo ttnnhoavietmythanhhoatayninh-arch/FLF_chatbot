@@ -22,7 +22,7 @@ try {
     }
     docker build --platform linux/amd64 -t excelqa2026:local .
     if ($LASTEXITCODE -ne 0) { throw 'Docker build failed. Do not submit yet.' }
-    docker run --rm --platform linux/amd64 --memory=1g --cpus=6 `
+    docker run --rm --platform linux/amd64 --memory=4g --cpus=6 `
         --read-only --tmpfs '/tmp:rw,size=64m' `
         --mount "type=bind,source=$InputPath,target=/input,readonly" `
         --mount "type=bind,source=$ResultPath,target=/output" `

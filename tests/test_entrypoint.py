@@ -41,11 +41,11 @@ class EntrypointTests(unittest.TestCase):
                 self.assertEqual((inp/'fresh.xlsx').read_bytes(),before)
         finally:server.shutdown();server.server_close();thread.join()
 
-    def test_unsupported_offline_returns_nonzero_and_all_ids(self):
+    def test_unanswered_is_valid_empty_string_per_faq(self):
         with tempfile.TemporaryDirectory() as d:
             root=Path(d);inp,q=self.fixture(root);output=root/'submission.csv'
             with contextlib.redirect_stderr(io.StringIO()):code=main.main(['--xlsx-dir',str(inp),'--queries',str(q),'--output',str(output),'--solver','offline'])
-            self.assertEqual(code,2)
+            self.assertEqual(code,0)
             with output.open(newline='',encoding='utf-8') as f:self.assertEqual(list(csv.DictReader(f)),[{'id':'007','answer':''}])
 
     def test_failed_workbook_does_not_poison_previous_workbook_cache(self):

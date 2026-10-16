@@ -1,62 +1,75 @@
-# ExcelQA 2026
+# ExcelQA 2026 — phiên bản 1.1
 
-Chương trình hỏi đáp trên Excel cho Vòng Khu vực Bảng C. Gói nộp dùng Docker Linux amd64, CPU; nhận đúng sáu tham số trong PDF hướng dẫn nộp bài của BTC.
+Giải pháp hỏi đáp trên bảng tính Excel cho Vòng Khu vực Bảng C. Đọc `xlsx_files/` và `queries.json`, tính đáp án từ ô nguồn, xuất CSV UTF-8 `id,answer`. Docker Linux amd64, CPU; nhận sáu tham số trong hướng dẫn BTC.
 
-**Trạng thái kiểm chứng:** bộ tính và giao diện API đã được kiểm thử tự động bằng HTTP giả lập. Trên dữ liệu công khai đợt 1, chế độ không gọi AI trả lời đúng 14/20 câu; 6 câu còn lại được chuyển sang LLM khi có khóa thật. Chưa kiểm chứng lượt chạy với OpenRouter thật hoặc Docker trong môi trường phát triển hiện tại. Không coi kết quả này là đạt 20/20 hoặc bảo đảm điểm trên bộ ẩn. Chạy kiểm tra thực ở mục 2 trước khi nộp.
+**Kết quả đã đo, không gọi API:** đợt 1 đúng 14/20; đợt 2 đúng 7/30, còn 23 câu cần LLM. Không có đáp án sai trong các câu offline đã trả lời. Đây không phải kết quả chạy Qwen thật hoặc điểm dự kiến trên bộ ẩn. Chưa kiểm chứng Docker và OpenRouter thật vì môi trường hiện tại không có Docker/API key. Xem `VALIDATION.md` và `UPGRADE_PLAN.md`.
 
-## 1 Nội dung gói
+## 1. Chạy thử bộ dữ liệu đợt 2 trên Windows
 
-- `Dockerfile` nằm ngay gốc ZIP, không nằm trong thư mục con.
-- `main.py`: chương trình trong ENTRYPOINT, đọc tham số, quản lý thời gian, xuất kết quả.
-- `excelqa/workbook.py`: đọc mọi sheet, tọa độ, ô gộp, ngày và công thức có giá trị lưu.
-- `excelqa/local.py`: giải trực tiếp một số phép truy xuất, so sánh, tổng, trung bình và thứ hạng khi nhận diện được cấu trúc.
-- `excelqa/prompts.py`, `solver.py`: yêu cầu Qwen lập kế hoạch từ dữ liệu nguồn và sửa kế hoạch không hợp lệ.
-- `excelqa/expressions.py`: kiểm tra và thực thi biểu thức khai báo; không chạy mã Python do LLM sinh.
-- `excelqa/api.py`, `budget.py`: gọi đúng model, giới hạn giá/token, theo dõi chi phí gồm retry.
-- `tests/`: kiểm thử dữ liệu mới, lỗi API, CSV và hợp đồng dòng lệnh.
-- `tools/evaluate.py`: đối chiếu Exact Match; tách khỏi luồng giải bài.
-- `RUN_WINDOWS.ps1`: trợ giúp build và chạy Docker trên Windows.
+Giải nén dữ liệu BTC ra thư mục riêng. Ví dụ `C:\DuLieu\Public data 2` phải chứa:
 
-Thư mục dependency_wheels chứa đúng phiên bản thư viện, được kiểm tra SHA-256 khi cài. Không kèm API key, đáp án cố định, bộ dữ liệu công khai, môi trường ảo hoặc tệp kết quả làm sẵn. Chương trình giải không đọc `sample_submission.csv`.
+- `xlsx_files\`: 15 workbook.
+- `queries.json`: 30 câu hỏi, ID 1–30.
+- `answers.json`: đáp án đối chiếu, chỉ công cụ đánh giá đọc.
+- `sample_submission.csv`: CSV mẫu.
 
-## 2 Chạy trên Windows bằng Docker Desktop
-
-1. Cài và khởi động Docker Desktop theo tài liệu chính thức: https://docs.docker.com/desktop/setup/install/windows-install/ . Dùng Linux containers, không dùng Windows containers.
-2. Giải nén gói này vào một thư mục, ví dụ `C:\ExcelQA2026`. Mở PowerShell tại đó.
-3. Giải nén dữ liệu BTC vào một thư mục riêng. Thư mục truyền cho `-DataDir` phải chứa `queries.json` và thư mục `xlsx_files`.
-4. Chạy:
+Mở PowerShell tại thư mục mã nguồn vừa tải từ GitHub. Cài đúng Python 3.12 và thư viện đã đóng kèm:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\RUN_WINDOWS.ps1 -DataDir "C:\DuLieu\Public data 1" -OutputDir "C:\ExcelQA_Output"
+py -3.12 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install --no-index --find-links dependency_wheels --require-hashes -r requirements.txt
+.\.venv\Scripts\python.exe -m unittest discover -s tests -v
 ```
 
-Script yêu cầu nhập API key bằng ô nhập ẩn nếu biến môi trường chưa có khóa. Không lưu khóa vào tệp hoặc ghi khóa ra màn hình. Khóa được chuyển vào container qua biến môi trường cho lượt chạy thử; hệ thống BTC có thể truyền bằng `--openrouter-key` như mục 3.
+Chạy trước ở chế độ không tốn phí API:
 
-Script build ảnh Linux amd64, đặt giới hạn 1 GB và 6 CPU, gắn đầu vào chỉ đọc, gắn thư mục kết quả riêng có quyền ghi. Các thư viện đã được cài vào ảnh ở bước build; khi chạy không cài thêm thư viện. Gói có sẵn wheel Python và mã băm để cài phụ thuộc không qua mạng; chỉ cần mạng để lấy ảnh nền Docker nếu máy chưa có, và để kết nối OpenRouter khi chạy LLM.
-
-Sau khi hoàn tất, kiểm tra:
-
-- `submission.csv`: CSV UTF-8 với hai cột `id,answer`.
-- `run_report.json`: trạng thái từng câu, ô nguồn, kế hoạch tính, thời gian, token và chi phí đã ghi nhận hoặc dự phòng.
-- Mã thoát phải bằng 0; `failed` phải bằng 0. Nếu mã thoát 2, CSV có thể là kết quả chẩn đoán với câu chưa trả lời; không coi đó là lượt chạy thành công.
-
-Đối chiếu với tệp mẫu bằng Python, hoặc mở CSV bằng công cụ giữ nguyên chuỗi và số 0 đầu ID. Không lưu lại CSV bằng Excel nếu chưa kiểm soát tự đổi kiểu dữ liệu.
-
-## 3 Hợp đồng chạy đúng hướng dẫn BTC
-
-Build ảnh:
-
-```bash
-docker build --platform linux/amd64 -t excelqa2026 .
+```powershell
+.\.venv\Scripts\python.exe tools\benchmark.py --data-dir "C:\DuLieu\Public data 2" --output-dir "C:\ExcelQA_Output\public2-offline" --solver offline
 ```
 
-Dockerfile khai báo:
+Kết quả trong output-dir:
+
+- `submission.csv`: đáp án, các câu không giải được để chuỗi rỗng.
+- `run_report.json`: kế hoạch, ô nguồn, thời gian và token.
+- `evaluation.json`: số câu khớp nguyên dạng, sai, chưa trả lời và danh sách chênh lệch.
+
+`benchmark.py` trả mã 1 nếu có câu chưa khớp đáp án, mã 0 nếu khớp hết, mã 2 nếu lỗi thực thi/định dạng. Mã 1 trong lượt offline còn thiếu câu là kết quả đánh giá, không phải lỗi cài đặt. Công cụ so sánh dùng chuỗi nguyên dạng, không mô phỏng hoàn toàn chuẩn hóa của BTC.
+
+## 2. Chạy hybrid với API key thật
+
+Dùng key được cấp theo hướng dẫn BTC; không đưa key vào mã nguồn, README hoặc GitHub. Mô hình duy nhất của giải pháp: `qwen/qwen3.7-flash`, qua `https://openrouter.ai/api/v1`.
+
+Nhập key trong cùng cửa sổ PowerShell, không hiện ký tự:
+
+```powershell
+$secureKey = Read-Host "OpenRouter API key" -AsSecureString
+$env:OPENROUTER_API_KEY = [System.Net.NetworkCredential]::new("", $secureKey).Password
+Remove-Variable secureKey
+```
+
+Chạy bộ đợt 2:
+
+```powershell
+.\.venv\Scripts\python.exe tools\benchmark.py --data-dir "C:\DuLieu\Public data 2" --output-dir "C:\ExcelQA_Output\public2-hybrid" --solver hybrid
+```
+
+Hybrid ưu tiên các phép giải trực tiếp được hỗ trợ; chỉ gọi Qwen khi cần. Mỗi câu có trần nội bộ 0,09 USD, bao gồm thử lại; tối đa ba lượt API do bộ giải điều khiển. Kiểm tra chi phí và lỗi trong report; không coi một lượt API thành công là bằng chứng đáp án đúng.
+
+Để so sánh hướng thuần LLM, dùng `--solver llm` và output-dir khác. Cách này có thể tốn phí hơn vì gọi AI cho mọi câu. Không gọi lại hàng loạt nếu chưa đọc các lỗi của lượt trước. Sau khi dùng xong:
+
+```powershell
+Remove-Item Env:OPENROUTER_API_KEY
+```
+
+## 3. Hợp đồng chạy của BTC
+
+`Dockerfile` nằm ngay gốc gói nộp, ENTRYPOINT:
 
 ```dockerfile
 ENTRYPOINT ["python", "/app/main.py"]
 ```
 
-Ví dụ sáu tham số được hệ thống chấm truyền vào ENTRYPOINT:
+Sáu tham số do hệ thống truyền:
 
 ```text
 --xlsx-dir /input/xlsx_files
@@ -67,112 +80,71 @@ Ví dụ sáu tham số được hệ thống chấm truyền vào ENTRYPOINT:
 --openrouter-base-url https://openrouter.ai/api/v1
 ```
 
-Ví dụ chạy từ Linux/macOS với khóa đã nằm trong biến môi trường, không ghi khóa thật vào tệp lệnh:
+Chạy Docker Desktop bằng Linux containers trên Windows:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\RUN_WINDOWS.ps1 -DataDir "C:\DuLieu\Public data 2" -OutputDir "C:\ExcelQA_Output\docker-public2"
+```
+
+Script build ảnh Linux amd64, đặt giới hạn RAM 4 GB và 6 CPU; đầu vào chỉ đọc. Các wheel có mã băm được cài lúc build, không cài thêm lúc chạy. Script chạy CSV và report; muốn đối chiếu, dùng mục 5.
+
+Ví dụ Linux, với key đã có trong biến môi trường:
 
 ```bash
+docker build --platform linux/amd64 -t excelqa2026 .
 mkdir -p output
-docker run --rm --platform linux/amd64 --memory=1g --cpus=6 \
+docker run --rm --platform linux/amd64 --memory=4g --cpus=6 \
   --read-only --tmpfs /tmp:rw,size=64m \
-  -v "/ABSOLUTE/DATA:/input:ro" \
-  -v "$PWD/output:/output" \
+  -v "/ABSOLUTE/DATA:/input:ro" -v "$PWD/output:/output" \
   -e OPENROUTER_API_KEY excelqa2026 \
-  --xlsx-dir /input/xlsx_files \
-  --queries /input/queries.json \
+  --xlsx-dir /input/xlsx_files --queries /input/queries.json \
   --output /output/submission.csv \
   --openrouter-model qwen/qwen3.7-flash \
   --openrouter-base-url https://openrouter.ai/api/v1 \
   --report /output/run_report.json
 ```
 
-Đổi `/ABSOLUTE/DATA` thành đường dẫn dữ liệu thật. `--report` là tùy chọn của giải pháp, không phải tham số BTC bắt buộc. Chương trình nhận `--openrouter-key` và ưu tiên giá trị tham số đó; biến `OPENROUTER_API_KEY` chỉ là phương án thay thế khi chạy thử.
+`main.py` trả 0 khi hoàn tất CSV hợp lệ, kể cả câu chưa trả lời theo FAQ; báo cáo vẫn ghi `unanswered` và `failed`. Mã 0 không đồng nghĩa đúng hết. Lỗi đầu vào, workbook hỏng, ghi file hoặc hết thời gian trả mã 2. ID dạng số được sắp theo giá trị số tăng dần, không sắp chuỗi kiểu 1,10,2; vẫn đọc ID chuỗi của bộ đợt 1 để kiểm thử tương thích.
 
-Chỉ mô hình `qwen/qwen3.7-flash` được chấp nhận. Không tự chuyển sang mô hình khác. Base URL thật được giới hạn ở `https://openrouter.ai/api/v1`; các phép thử HTTP cục bộ chỉ được bật bên trong kiểm thử, không phải đường vòng trong CLI thi.
+## 4. Kiến trúc và giới hạn
 
-## 4 Cách chương trình trả lời
+1. Đọc mọi sheet, giữ tọa độ, ô gộp và tiêu đề. Không đọc đáp án mẫu trong ứng dụng.
+2. `local.py` và `structured.py` nhận diện một số dạng bài bằng nội dung câu hỏi và cấu trúc bảng. Không chọn đáp án theo ID hoặc tên file.
+3. Nếu chưa hỗ trợ, Qwen nhận dữ liệu ô và câu hỏi để lập kế hoạch JSON. Không chạy mã Python do AI sinh ra.
+4. `expressions.py` kiểm tra và tính biểu thức từ các ô thật. Hỗ trợ lọc, xếp hạng, chênh lệch, phần trăm, tuổi và định dạng đáp án ghép.
+5. Ghi CSV nguyên tử; logs ra stderr. Lỗi không được ghi thành chuỗi `ERROR:` trong answer.
 
-1. Kiểm tra JSON, ID không thiếu/trùng, đường dẫn nằm trong thư mục Excel được cấp.
-2. Đọc tệp trong `file_name`, mọi sheet và danh sách vùng gộp; giữ tọa độ gốc.
-3. Ở chế độ mặc định `hybrid`, thử bộ giải trực tiếp cho những cấu trúc được hỗ trợ. Nếu không tạo được kế hoạch hợp lệ thì gọi Qwen.
-4. Qwen nhận câu hỏi cùng biểu diễn ô và tiêu đề từ tệp tương ứng; trả về kế hoạch JSON dùng tọa độ và phép toán được cho phép.
-5. Bộ tính kiểm tra sheet/ô có thật, kiểu số/ngày, phạm vi và độ phức tạp; tính bằng Python/Decimal. Không nhận một đáp án số được LLM viết sẵn thay cho phép tính từ nguồn.
-6. Lỗi kế hoạch có thể được yêu cầu sửa, tối đa 3 lượt API/câu gồm lượt đầu. Retry vẫn phải nằm trong thời gian và ngân sách.
-7. Định dạng theo query: số nguyên, chữ số thập phân, Yes/No hoặc danh sách ngăn bằng dấu phẩy và một khoảng trắng. Đầu ra không kèm giải thích.
-8. Ghi CSV tạm, đọc kiểm tra cấu trúc và ID, rồi thay thế nguyên tử sang đúng `--output`. Nhật ký đi stderr.
-
-`--solver llm` bỏ bộ giải trực tiếp, để Qwen lập kế hoạch mọi câu. Dùng tùy chọn này để so sánh với hybrid trên dữ liệu đợt 2 nếu thấy bộ giải trực tiếp chọn sai ngữ nghĩa. Không mặc định cách nào có điểm cao hơn khi chưa đo.
-
-`--solver offline` không gọi mạng và có thể không giải hết. Dùng để thử bộ đọc/bộ tính và đo chi phí 0; không dùng lượt chạy thiếu câu này làm minh chứng hoàn thành bài thi.
-
-## 5 Giới hạn và kiểm soát
-
-| Nội dung | Cách thực hiện |
+| Quy định | Cách áp dụng |
 |---|---|
-| Chi phí BTC không quá 0,10 USD/câu/mỗi lần chấm | Mặc định trần nội bộ 0,09 USD/câu, cộng mọi lượt thử lại; không dồn ngân sách giữa câu. |
-| Kiểm tra trước yêu cầu | Đọc giá model từ `/models`; đặt `provider.max_price` và `max_tokens`; dự phòng đầu vào theo số byte UTF-8 cộng phần dư. Nếu không xác minh được giá thì không gọi mù. |
-| Giá thiếu hoặc chi phí thiếu | Thiếu giá thì báo lỗi; thiếu cost nhưng có token thì tính theo giá trần; thiếu cả usage thì giữ khoản dự phòng, không ghi bằng 0. Khoản dự phòng không đồng nghĩa hóa đơn thực. BTC ghi nhận chi phí chính thức. |
-| Không đổi mô hình | Khóa model theo yêu cầu BTC; không có model fallback. |
-| Thời gian 40 phút cho 20 câu | Mặc định 2.300 giây toàn lượt, giữ dư địa xuất CSV; 110 giây/câu theo phân bổ thời gian còn lại. Linux có timer để ngắt khi hết thời gian. |
-| Bộ nhớ giải pháp không quá 1 GB | Chạy một tiến trình CPU; Linux áp dụng trần không gian địa chỉ 900 MiB; chỉ giữ một workbook trong cache. Docker chạy thử đặt `--memory=1g`. |
-| ZIP không quá 100 MB | Script đóng gói kiểm tra ≤100.000.000 byte và Dockerfile ở gốc. |
-| Không sửa đầu vào | Kiểm tra đường dẫn đầu ra; chạy Docker với `/input:ro`. |
+| Tối đa 0,10 USD/câu/lượt chấm | Trần mặc định 0,09; dự phòng trước API; đặt giá trần provider; tính cả retry. |
+| 40 phút cho 20 câu theo đề | Toàn lượt mặc định 2.300 giây; tối đa 110 giây/câu và phân bổ theo thời gian còn lại. Bộ công khai 2 có 30 câu; số này không thay đổi quy định lượt chấm. |
+| RAM tối đa 4 GB theo FAQ | Docker thử giới hạn 4g; Linux giới hạn không gian địa chỉ tiến trình 3.500 MiB. Đây là hai loại giới hạn khác nhau. |
+| Disk tối đa 1 GB theo FAQ | Ít phụ thuộc, không chép dữ liệu vào ảnh. Cần đo ảnh/container thật trước nộp; chưa có số đo Docker trong môi trường hiện tại. |
+| CSV UTF-8, ID tăng dần, bỏ trống khi không trả lời | Có kiểm thử. ID số biểu diễn tương đương như 2 và "002" không được trùng. |
+| Token tính input + reasoning theo FAQ | Báo cáo riêng prompt/completion/reasoning. Tổng theo FAQ để null nếu API không cung cấp đủ reasoning usage; completion không được giả định là reasoning. |
+| Trung bình "across all" | Bao gồm mọi cột trong phạm vi, kể cả Total, trừ khi câu hỏi loại trừ. |
+| AI khi phát triển và khi chạy | FAQ cho phép dùng công cụ bất kỳ khi phát triển; giải pháp cuối chỉ gọi AI/LLM BTC quy định. |
 
-Mô hình có thể lập kế hoạch sai ngữ nghĩa dù biểu thức hợp lệ. Kiểm tra tọa độ giúp truy vết và chặn ô giả, không chứng minh AI đã hiểu đúng câu hỏi. Không có bảo đảm đúng toàn bộ bộ ẩn.
+Không thay đổi dữ liệu đầu vào. Chỉ truy cập mạng để cài phụ thuộc và gọi OpenRouter. Context giữ toàn bộ ô của workbook trong giới hạn mặc định 200.000 byte; vượt giới hạn thì từ chối thay vì cắt âm thầm. Có thể tăng `--max-context-bytes` đến 1.000.000 khi đã kiểm tra phí và thời gian.
 
-Làm tròn phần thập phân dùng Decimal với ROUND_HALF_UP; nếu BTC công bố quy ước khác phải chỉnh theo quy ước đó. Không tự nhân số liệu “in thousands” nếu câu hỏi không yêu cầu chuyển đơn vị.
+Công thức dùng giá trị cache; chỉ hỗ trợ bổ sung tham chiếu trực tiếp cùng sheet khi cache thiếu. Chưa có bộ tính Excel đầy đủ. Biểu thức hợp lệ vẫn có thể sai ngữ nghĩa do AI chọn nhầm phạm vi; cần đánh giá thực tế.
 
-Công thức Excel: dùng giá trị cache nếu có; hỗ trợ tham chiếu trực tiếp cùng sheet khi cache thiếu. Không có bộ tính Excel đầy đủ. Ô công thức chưa có giá trị không bị biến thành số 0. Workbook quá lớn, vùng trống làm phình kích thước hoặc ngữ cảnh trên 200.000 byte sẽ bị từ chối thay vì cắt dữ liệu âm thầm. `--max-context-bytes` có thể tăng tối đa 1.000.000 sau khi kiểm tra chi phí và thời gian.
+## 5. Đối chiếu và đóng gói
 
-## 6 Kiểm thử bằng Python không cần Docker
-
-Cần Python 3.12 và thư viện trong requirements; không cần GPU.
+Đối chiếu riêng với `answers.json` đợt 2:
 
 ```powershell
-py -m venv .venv
-.\.venv\Scripts\python.exe -m pip install --no-index --find-links dependency_wheels --require-hashes -r requirements.txt
-.\.venv\Scripts\python.exe -m unittest discover -s tests -v
+.\.venv\Scripts\python.exe tools\evaluate.py --queries "C:\DuLieu\Public data 2\queries.json" --prediction "C:\ExcelQA_Output\docker-public2\submission.csv" --reference "C:\DuLieu\Public data 2\answers.json" --report "C:\ExcelQA_Output\docker-public2\evaluation.json"
 ```
 
-Chạy dữ liệu thật với khóa lấy từ biến môi trường (đặt khóa ngoài tệp mã):
+Bộ đợt 1 có thể dùng `sample_submission.csv` làm reference. Không lấy đáp án mẫu để tạo câu trả lời khi chạy.
 
-```powershell
-.\.venv\Scripts\python.exe main.py --xlsx-dir "C:\DuLieu\Public data 1\xlsx_files" --queries "C:\DuLieu\Public data 1\queries.json" --output "C:\ExcelQA_Output\submission.csv" --report "C:\ExcelQA_Output\run_report.json"
-```
-
-Đánh giá Exact Match sau khi đã chạy chương trình:
-
-```powershell
-.\.venv\Scripts\python.exe tools\evaluate.py --queries "C:\DuLieu\Public data 1\queries.json" --prediction "C:\ExcelQA_Output\submission.csv" --reference "C:\DuLieu\Public data 1\sample_submission.csv" --report "C:\ExcelQA_Output\evaluation.json"
-```
-
-`evaluate.py` so chuỗi đúng nguyên dạng sau khi đọc CSV; mã thoát 0 nếu mọi câu khớp, 1 nếu có câu lệch, 2 nếu định dạng/ID không hợp lệ. Bộ so sánh nội bộ không thay thế trình chấm BTC.
-
-Khi có dữ liệu công khai đợt 2, giữ riêng hai thư mục, chạy bản hiện tại trên bộ mới trước khi sửa, sau đó chạy lại cả hai bộ. Không thêm ánh xạ đáp án theo ID, tên file hoặc tọa độ mẫu.
-
-## 7 Đóng gói theo tên đội và nộp
-
-Tên đội chưa được cung cấp nên gói phân phối đang dùng tên `TEN_DOI.zip`. **Trước khi nộp, đổi tên ZIP đúng tên đội trên hệ thống.** Nếu sửa mã hoặc muốn tạo lại gói:
+Tạo ZIP theo tên đội:
 
 ```powershell
 .\.venv\Scripts\python.exe tools\package.py --team TEN_DOI_THAT --out dist
 ```
 
-Không nén cả thư mục cha thành một lớp bao ngoài. Mở ZIP và kiểm tra thấy `Dockerfile` ngay ở gốc. Script đóng gói loại dữ liệu, cache, môi trường ảo và chỉ lấy danh sách mã cần thiết. Tệp MANIFEST.sha256 giúp kiểm tra nội dung đã đóng gói.
+ZIP tối đa 100 MB, Dockerfile ở gốc; không kèm dữ liệu, key hoặc môi trường ảo. Tải mã qua **Code → Download ZIP** trên GitHub để phát triển; gói GitHub có thư mục bao ngoài, nên dùng `tools/package.py` tạo gói thi. Kiểm tra build Docker, runtime, disk/RAM, ngân sách và độ chính xác bằng key thật trước khi nộp tại https://ai.tainangviet.vn.
 
-Trước khi tải lên https://ai.tainangviet.vn:
-
-- Build ảnh Linux amd64 thành công.
-- Chạy đủ câu với API thật, `failed=0` và mã thoát 0.
-- Kiểm tra kết quả, chi phí, thời gian và bộ nhớ; thử dữ liệu đợt 2 khi đã công bố.
-- ZIP đúng tên đội, không quá 100 MB, Dockerfile ở gốc, không có khóa.
-- Kiểm tra hệ thống đã ghi nhận đúng bản nộp cuối.
-
-Hạn nộp theo đề gốc: 12:00 ngày 17/10/2026; ưu tiên thông báo cập nhật chính thức nếu có. Đội cần giải thích được bộ đọc, bộ lập kế hoạch, bộ tính, chi phí và cách sửa mã trong phần xác minh.
-
-## 8 Nguồn kỹ thuật
-
-- PDF BTC “Hướng dẫn nộp bài Bảng C” do đội cung cấp: cấu trúc ZIP, Docker, ENTRYPOINT, sáu tham số, CSV và đầu vào chỉ đọc.
-- Ba ảnh đề “Chủ đề 2 Hỏi đáp trên bảng tính Excel”: giới hạn và xếp hạng.
-- https://openrouter.ai/docs/api_reference/overview
-- https://openrouter.ai/docs/guides/routing/provider-selection#max-price
-- https://docs.docker.com/reference/dockerfile/
-- https://openpyxl.readthedocs.io/en/stable/api/openpyxl.reader.excel.html
+Căn cứ: đề, hướng dẫn nộp bài và FAQ BTC do đội cung cấp; FAQ là căn cứ cập nhật RAM/disk, ID, chuỗi rỗng và token. Hạn đề gốc: 12:00 ngày 17/10/2026, ưu tiên thông báo chính thức mới hơn nếu có.

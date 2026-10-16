@@ -53,6 +53,11 @@ def meta(s):
     return rs,headers,leaves,scopes
 
 def local_plan(book,query):
+    from .structured import structured_plan
+    advanced=structured_plan(book,query)
+    if advanced is not None:return advanced
+    # English heuristics must not guess on queries in other languages.
+    if any(ord(c)>127 and c.isalpha() for c in query):return None
     q=norm(query)
     if re.search(r'\bmen\b',q) and re.search(r'\bwomen\b',q):return None
     fmt=inferred_format(query)

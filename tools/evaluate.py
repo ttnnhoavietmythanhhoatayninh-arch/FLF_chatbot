@@ -15,15 +15,29 @@ def read_csv(path):
             out[row['id']]=row['answer']
         return out
 
+def read_reference(path):
+    path=Path(path)
+    if path.suffix.lower()!='.json':return read_csv(path)
+    items=json.loads(path.read_text(encoding='utf-8-sig'))
+    if not isinstance(items,list):raise ValueError('Reference JSON must be a list')
+    out={}
+    for row in items:
+        if not isinstance(row,dict) or 'id' not in row or not isinstance(row.get('answer'),str):
+            raise ValueError('Reference needs id and string answer')
+        key=str(row['id'])
+        if key in out:raise ValueError('Duplicate reference ID')
+        out[key]=row['answer']
+    return out
+
 def main():
     p=argparse.ArgumentParser();p.add_argument('--queries',required=True);p.add_argument('--prediction',required=True)
     p.add_argument('--reference',required=True);p.add_argument('--report');a=p.parse_args()
     try:
         items=json.loads(Path(a.queries).read_text(encoding='utf-8-sig'));ids=[str(x['id']) for x in items]
-        pred=read_csv(a.prediction);gold=read_csv(a.reference)
+        pred=read_csv(a.prediction);gold=read_reference(a.reference)
         if len(ids)!=len(set(ids)) or set(pred)!=set(ids) or set(gold)!=set(ids):raise ValueError('Missing, duplicate or extra IDs')
         errors=[{'id':i,'predicted':pred[i],'reference':gold[i]} for i in ids if pred[i]!=gold[i]]
-        report={'questions':len(ids),'exact_match':len(ids)-len(errors),'unanswered':sum(not pred[i] for i in ids),'differences':errors}
+        report={'questions':len(ids),'exact_match':len(ids)-len(errors),'answered':sum(bool(pred[i]) for i in ids),'wrong_nonempty':sum(bool(pred[i]) and pred[i]!=gold[i] for i in ids),'unanswered':sum(not pred[i] for i in ids),'differences':errors}
         text=json.dumps(report,ensure_ascii=False,indent=2);print(text)
         if a.report:Path(a.report).write_text(text,encoding='utf-8')
         return 1 if errors else 0

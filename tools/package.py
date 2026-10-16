@@ -11,10 +11,11 @@ ROOT=Path(__file__).resolve().parent.parent
 def build(team,out):
     if not re.fullmatch(r'[\w.-]{1,80}',team) or team in ('.','..'):
         raise ValueError('Use a team name without spaces or path separators')
-    files=[ROOT/x for x in ('Dockerfile','.dockerignore','requirements.txt','main.py','README.md','VALIDATION.md','RUN_WINDOWS.ps1')]
+    files=[ROOT/x for x in ('Dockerfile','.dockerignore','requirements.txt','main.py','README.md','VALIDATION.md','UPGRADE_PLAN.md','RUN_WINDOWS.ps1')]
     for folder in ('excelqa','tests','tools'):
         files.extend(p for p in (ROOT/folder).rglob('*') if p.is_file() and '__pycache__' not in p.parts and p.suffix in ('.py','.md'))
     files.extend((ROOT/'dependency_wheels').glob('*.whl'))
+    files.extend((ROOT/'reports').glob('*.json'))
     files=sorted(set(files))
     entries={str(p.relative_to(ROOT)).replace('\\','/'):p.read_bytes() for p in files}
     for name,content in entries.items():

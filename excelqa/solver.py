@@ -14,7 +14,8 @@ class SolveError(RuntimeError):
 def execute(book,plan,query):
     ev=Evaluator(book,query=query);value=ev.run(plan['expression'])
     fmt=inferred_format(query)
-    if fmt=={'type':'auto'}:fmt=plan.get('format',fmt)
+    if fmt=={'type':'auto'} or (isinstance(value,list) and isinstance(plan.get('format'),dict) and plan['format'].get('type')=='tuple'):
+        fmt=plan.get('format',fmt)
     answer=format_answer(value,fmt)
     if not ev.evidence:raise PlanError('Answer has no source cells')
     return answer,ev.evidence

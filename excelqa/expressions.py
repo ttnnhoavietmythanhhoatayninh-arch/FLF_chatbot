@@ -11,7 +11,7 @@ class Evaluator:
     def __init__(self,book,query=''):self.book=book;self.query=query;self.evidence={};self.nodes=0
     def run(self,e,depth=0):
         self.nodes+=1
-        if self.nodes>12000 or depth>24:raise PlanError('Expression too complex')
+        if self.nodes>60000 or depth>24:raise PlanError('Expression too complex')
         if not isinstance(e,dict):raise PlanError('Expressions must be objects grounded in cells')
         if set(e)=={'constant'}:
             v=e['constant']
@@ -82,6 +82,17 @@ class Evaluator:
             return self.run(chosen[2]['result'],depth+1) if op=='pick' and 'result' in chosen[2] else chosen[0]
         args=e.get('args',[])
         if not isinstance(args,list):raise PlanError('args must be a list')
+        if op in ('and','or'):
+            if not args:raise PlanError('Boolean arguments required')
+            for arg in args:
+                value=self.run(arg,depth+1)
+                if not isinstance(value,bool):raise PlanError('Boolean arguments required')
+                if op=='and' and not value:return False
+                if op=='or' and value:return True
+            return op=='and'
+        if op=='is_numeric' and len(args)==1:
+            try:self._num(self.run(args[0],depth+1));return True
+            except (PlanError,WorkbookError):return False
         vs=[self.run(x,depth+1) for x in args]
         flat=[]
         for v in vs:flat.extend(v if isinstance(v,list) else [v])
@@ -98,13 +109,13 @@ class Evaluator:
         if op=='eq' and len(vs)==2 and any(isinstance(v,str) for v in vs):
             return clean(vs[0]).casefold()==clean(vs[1]).casefold()
         if op=='contains' and len(vs)==2:return clean(vs[1]).casefold() in clean(vs[0]).casefold()
-        if op in ('sub','div','mul','gt','lt','eq','ge','le','percent_change'):
+        if op in ('sub','div','mul','gt','lt','eq','ge','le','percent_change','percent_ratio'):
             if len(vs)!=2:raise PlanError('Binary operation needs two arguments')
             a,b=map(self._num,vs)
-            if op in ('div','percent_change') and b==0:raise PlanError('Division by zero')
+            if op in ('div','percent_change','percent_ratio') and b==0:raise PlanError('Division by zero')
             return {'sub':lambda:a-b,'div':lambda:a/b,'mul':lambda:a*b,'gt':lambda:a>b,
                     'lt':lambda:a<b,'eq':lambda:a==b,'ge':lambda:a>=b,'le':lambda:a<=b,
-                    'percent_change':lambda:(a-b)/b*100}[op]()
+                    'percent_ratio':lambda:a/b*100,'percent_change':lambda:(a-b)/b*100}[op]()
         if op=='abs' and len(vs)==1:return abs(self._num(vs[0]))
         if op in ('days_between','age_years') and len(vs)==2:
             def date(x):
@@ -148,6 +159,12 @@ def format_answer(value,spec=None):
     if not isinstance(spec,dict):raise PlanError('Invalid answer format')
     typ=spec.get('type','auto')
     if isinstance(value,list):
+        if typ=='tuple':
+            items=spec.get('items')
+            if not isinstance(items,list) or len(items)!=len(value):raise PlanError('Tuple format length mismatch')
+            return ', '.join(format_answer(v,f) for v,f in zip(value,items))
+        if typ in ('fixed','integer','number'):
+            return ', '.join(format_answer(v,spec if isinstance(v,(int,float,Decimal)) and not isinstance(v,bool) else {'type':'auto'}) for v in value)
         item=spec.get('item',{'type':'auto'})
         return ', '.join(format_answer(v,item) for v in value)
     if isinstance(value,bool):return 'Yes' if value else 'No'
@@ -171,11 +188,15 @@ def format_answer(value,spec=None):
     return ans
 
 def inferred_format(query):
-    q=query.lower()
-    if 'two decimal' in q or '2 decimal' in q:
-        f={'type':'fixed','decimals':2}
-        return {'type':'list','item':f} if 'separat' in q or 'men, women' in q else f
+    q=query.casefold()
+    aliases={1:('one decimal','1 decimal','một chữ số thập phân','một số thập phân','une décimale','一位小数'),
+             2:('two decimal','2 decimal','hai chữ số thập phân','hai số thập phân','deux décimales','둘째 자리','两位小数'),
+             3:('three decimal','3 decimal','ba chữ số thập phân','trois décimales','三位小数')}
+    for n,phrases in aliases.items():
+        if any(t in q for t in phrases):
+            f={'type':'fixed','decimals':n}
+            return {'type':'list','item':f} if 'men, women' in q else f
     if 'two integers' in q:return {'type':'list','item':{'type':'integer'}}
-    if 'integer' in q:return {'type':'integer'}
+    if 'integer' in q or 'số nguyên' in q:return {'type':'integer'}
     if 'yes or no' in q:return {'type':'yes_no'}
     return {'type':'auto'}

@@ -11,8 +11,8 @@ Never reference empty merged children; reference their top-left anchor when a la
 
 Operations:
 {"op":"sum|mean|min|max|count|list", "args":[EXPR,...]} flatten list arguments.
-{"op":"sub|div|mul|gt|lt|eq|ge|le|percent_change", "args":[A,B]}.
-sub=A-B; percent_change=(A-B)/B*100; comparisons return boolean.
+{"op":"sub|div|mul|gt|lt|eq|ge|le|percent_change|percent_ratio", "args":[A,B]}.
+sub=A-B; percent_change=(A-B)/B*100; percent_ratio=A/B*100; comparisons return boolean.
 {"op":"abs", "args":[EXPR]}.
 {"op":"days_between|age_years", "args":[BIRTH_DATE_CELL, EVENT_DATE_CELL]}.
 days_between returns exact elapsed days; age_years returns completed integer years.
@@ -41,15 +41,19 @@ descending=false, at=2, value={"col":"D"}.
 Example max score of youngest group: wrap a table sorted by age, take=N, value=score column in max.
 Specify only valid DATA rows: exclude headers, subtotals if not relevant, blanks and footnotes.
 A table may include optional "where":ROW_EXPR. Use boolean gt/lt/ge/le/eq, contains,
-and/or/not for filters. For a numeric or text threshold explicitly present in the question,
+and/or/not for filters. and/or short-circuit left to right.
+Use {"op":"is_numeric","args":[EXPR]} before numeric tests to skip missing cells,
+"..", dashes or unavailable values; never silently replace them with zero. For a numeric or text threshold explicitly present in the question,
 use {"constant":80} or {"constant":"Construction"}. Constants must occur verbatim
 in the question and are parameters, never the final answer. Count a filtered table by wrapping
 it in count. Empty filtered tables count as zero. Do not invent a missing date.
 
 Formatting:
 {"type":"integer"}, {"type":"fixed","decimals":2}, {"type":"text"},
-{"type":"yes_no"}, {"type":"auto"}, or {"type":"list","item":{"type":"integer"}}.
-Lists are joined using comma and one space. Honor requested ordering and decimal digits.
+{"type":"yes_no"}, {"type":"auto"}, {"type":"tuple","items":[FORMAT,...]}, or {"type":"list","item":{"type":"integer"}}.
+Lists are joined using comma and one space. Use tuple for mixed outputs such as
+[year, decimal difference] with independent integer/fixed formats, or [source label, fixed number].
+Use the question language only to interpret the task; preserve source label language when requested. Honor requested ordering and decimal digits.
 An integer format cannot discard fractional values. Output only the JSON plan, no markdown.
 
 Interpretation:
@@ -60,8 +64,14 @@ For age ranking use a reference/event date supplied in the table, e.g. admission
 recorded age context; distinguish chronological age from ranking birth dates. Use exact durations
 for age rankings at different event dates; do not round to integer years before sorting unless asked.
 For averages, identify the exact displayed categories requested and use unweighted mean unless
-weights are explicitly requested. A displayed aggregate is not automatically an extra population.
+weights are explicitly requested. BTC FAQ: for average "across all" displayed columns, include totals in that row
+unless the question explicitly excludes totals or requests subcategories only.
 When selecting percentages, distinguish already-computed percent-change columns from raw indexes.
+For annual series, exclude quarterly rows and separate level/base-year blocks from index-series blocks.
+For NAICS, 6-digit means the code has exactly six digits; exclude parent codes.
+For rates explicitly reported in a combined/Total column, read that column; do not sum components.
+A percentage-point difference is subtraction, not relative percent change.
+For decrease percentages, use abs(percent_change(new,old)); for a share use percent_ratio(part,total).
 For comparisons and differences preserve the operand order in the question. For an absolute
 change maximize the absolute magnitude, not merely the positive value.
 If the data cannot support an answer, return {"expression":{"op":"unsupported"},"note":"reason"}.
